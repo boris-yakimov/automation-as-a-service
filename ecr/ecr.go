@@ -1,0 +1,7 @@
+package ecr
+
+import "fmt"
+
+func main() {
+	fmt.Println("vim-go")
+}
