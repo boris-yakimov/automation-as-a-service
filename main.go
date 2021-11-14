@@ -1,32 +1,34 @@
 package main
 
 import (
-	//"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/s3"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"fmt"
 
 	"automation-as-a-service/network"
 )
 
-func init() {
-		vpcCidrRange := "10.0.0.0/16"
-}
-
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
+		projectName := "eduspire"
+		vpcCidrRange := "10.0.0.0/16"
 
-		createVpcErr := network.CreateVPC(ctx, vpcCidrRange)
+		// Create AWS VPC
+		vpcConfig, createVpcErr := network.CreateVPC(ctx, projectName, vpcCidrRange)
 		if createVpcErr != nil {
 			return createVpcErr
 		}
 
-		// Create an AWS resource (S3 Bucket)
-		//bucket, err := s3.NewBucket(ctx, "boris-test", nil)
-		//if err != nil {
-			//return err
-		//}
+		// TODO: Not sure if these exports should not be moved on module level
+		ctx.Export("vpcArn", vpcConfig.Arn)
+		ctx.Export("vpcId", vpcConfig.ID())
+		//vpcId := pulumi.String(vpcConfig.ID)
+		//fmt.Println(vpcConfig.ID())
 
-		//// Export the name of the bucket
-		//ctx.Export("bucketName", bucket.ID())
+		// TODO: figure out output params, callbacks, etc
+		fmt.Println(vpcConfig.ID().ToStringOutput())
+
+		//igwConfig, createIgwErr := network.CreateInternetGateway(ctx, projectName, )
+
 		return nil
 	})
 }
