@@ -5,11 +5,11 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateInternetGateway(ctx *pulumi.Context, projectName string, vpcId string) (igwConfigObject *ec2.InternetGateway, createIgwErr error) {
-	igwName := projectName + "-vpc"
+func CreateInternetGateway(ctx *pulumi.Context, vpcId pulumi.StringInput, projectName string) (igwConfigObject *ec2.InternetGateway, createIgwErr error) {
+	igwName := projectName + "-igw"
 
 	igwConfig, createIgwErr := ec2.NewInternetGateway(ctx, igwName, &ec2.InternetGatewayArgs{
-		VpcId: pulumi.String(vpcId),
+		VpcId: pulumi.StringInput(vpcId),
 		Tags: pulumi.StringMap{
 			"Name":      pulumi.String(igwName),
 			"ManagedBy": pulumi.String("Pulumi"),
