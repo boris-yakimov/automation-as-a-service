@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"fmt"
+
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"automation-as-a-service/network"
 )
