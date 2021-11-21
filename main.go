@@ -4,6 +4,7 @@ import (
 	//"fmt"
 	"strings"
 
+	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"automation-as-a-service/network"
@@ -24,19 +25,20 @@ func main() {
 		}
 
 		// Create AWS VPC
-		vpcConfig, createVpcErr := network.CreateVPC(ctx, projectName, vpcCidrRange)
+		vpcResource, createVpcErr := network.CreateVPC(ctx, projectName, vpcCidrRange)
 		if createVpcErr != nil {
 			return createVpcErr
 		}
 
-		vpcId := vpcConfig.ID()
+		vpcId := vpcResource.ID()
 
 		// Create AWS Internet Gateway
-		_, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName)
+		igwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName)
 		if createIgwErr != nil {
 			return createIgwErr
 		}
 
+		var subnetResource *ec2.Subnet
 		// Create AWS Subnets
 		for subnetName, cidr := range subnetList {
 			var subnetType string
@@ -46,10 +48,25 @@ func main() {
 				subnetType = "public"
 			}
 
-			_, createSubnetErr := network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
+			var createSubnetErr error
+			// TODO: create a map of subnet ids/names to use in later associations
+			if subnetName == "public-subnet1" {
+				subnetResource, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
+			} else {
+				_, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
+			}
 			if createSubnetErr != nil {
 				return createSubnetErr
 			}
+		}
+		// TODO: remove after converting this to a map of IDs
+		subnetId := subnetResource.ID()
+
+		// Create NAT Gateway
+		// TODO: optional configure of how many NATGWs we want - specify cost implications
+		_, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, subnetId, igwResource)
+		if createNatGwErr != nil {
+			return createNatGwErr
 		}
 
 		return nil
