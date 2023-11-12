@@ -4,7 +4,7 @@ import (
 	//"fmt"
 	"strings"
 
-	"github.com/pulumi/pulumi-aws/sdk/v4/go/aws/ec2"
+	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"automation-as-a-service/network"
@@ -12,7 +12,7 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
-		projectName := "eduspire"
+		projectName := "pulumi-test"
 		vpcCidrRange := "10.0.0.0/16"
 		subnetList := map[string]string{
 			"private-subnet1": "10.0.0.0/20", // 4k IPs per subnet
@@ -68,6 +68,9 @@ func main() {
 		if createNatGwErr != nil {
 			return createNatGwErr
 		}
+
+		// TODO : check what to do with exports and if we need them at all
+		ctx.Export("vpcId", vpcId)
 
 		return nil
 	})
