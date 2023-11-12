@@ -5,6 +5,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// TODO: check why VPC id is not used here
 func CreateNatGateway(ctx *pulumi.Context, vpcId pulumi.StringInput, projectName string, subnetId pulumi.StringInput, igwResource *ec2.InternetGateway) (natGwResourceObject *ec2.NatGateway, createNatGwErr error) {
 	// TODO: make this take an ID or count or something to not conflict when more than 1 nat has to be created
 	natGwName := projectName + "-natgw"

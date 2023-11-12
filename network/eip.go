@@ -9,11 +9,9 @@ func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string) (eipR
 	// TODO: add validations to make sure those are not empty
 	eipName := projectName + "-eip-" + eipPurpose
 
-	// TODO: make it depend on the VPC
 	eipResource, createEipErr := ec2.NewEip(ctx, eipName, &ec2.EipArgs{
 		Domain:         pulumi.String("vpc"),
 		PublicIpv4Pool: pulumi.String("amazon"),
-		//Vpc:            pulumi.Bool(true),
 		Tags: pulumi.StringMap{
 			"Name":      pulumi.String(eipName),
 			"ManagedBy": pulumi.String("Pulumi"),

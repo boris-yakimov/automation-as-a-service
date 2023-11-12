@@ -64,9 +64,20 @@ func main() {
 
 		// Create NAT Gateway
 		// TODO: optional configure of how many NATGWs we want - specify cost implications
-		_, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, subnetId, igwResource)
+		natGw, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, subnetId, igwResource)
 		if createNatGwErr != nil {
 			return createNatGwErr
+		}
+
+		natGwId := natGw.ID()
+
+		// TODO: get actual CIDR from map above
+		var tempCidrRange = pulumi.StringInput("10.0.0.0/20")
+
+		// Create Route Table
+		_, createRouteTableErr := network.CreateRouteTable(ctx, projectName, vpcId, "NATGW", natGwId, tempCidrRange)
+		if createRouteTableErr != nil {
+			return createRouteTableErr
 		}
 
 		// TODO : check what to do with exports and if we need them at all
