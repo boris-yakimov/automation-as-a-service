@@ -72,10 +72,11 @@ func main() {
 		natGwId := natGw.ID()
 
 		// TODO: get actual CIDR from map above
-		var tempCidrRange = pulumi.StringInput("10.0.0.0/20")
+		var tempCidrRange = "10.0.0.0/20"
+		var gatewayType = "NATGW"
 
-		// Create Route Table
-		_, createRouteTableErr := network.CreateRouteTable(ctx, projectName, vpcId, "NATGW", natGwId, tempCidrRange)
+		// Create Route Tables - Private Subnets with NAT
+		_, createRouteTableErr := network.CreateRouteTable(ctx, projectName, vpcId, gatewayType, natGwId, tempCidrRange)
 		if createRouteTableErr != nil {
 			return createRouteTableErr
 		}

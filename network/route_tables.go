@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -8,11 +9,11 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateRouteTable(ctx *pulumi.Context, projectName string, vpcId pulumi.StringInput, gatewayType string, gatewayId pulumi.StringInput, cidrBlock pulumi.StringInput) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
-	routeTableName := projectName + "route_table"
+func CreateRouteTable(ctx *pulumi.Context, projectName string, vpcId pulumi.StringInput, gatewayType string, gatewayId pulumi.StringInput, cidrBlock string) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+	routeTableName := projectName + "route-table"
 
 	var gatewayTypeArg string
-	if gatewayType == "NAT" {
+	if gatewayType == "NATGW" {
 		gatewayTypeArg = "NatGatewayId"
 	} else if gatewayType == "IGW" {
 		gatewayTypeArg = "GatewayId"
@@ -21,7 +22,7 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, vpcId pulumi.Stri
 	}
 
 	routeTableRouteArgs := &ec2.RouteTableRouteArgs{
-		CidrBlock: pulumi.StringInput(cidrBlock),
+		CidrBlock: pulumi.String(cidrBlock),
 	}
 
 	routeTableRouteArgsValue := reflect.ValueOf(routeTableRouteArgs).Elem()
@@ -37,14 +38,26 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, vpcId pulumi.Stri
 		VpcId: pulumi.StringInput(vpcId),
 		Routes: ec2.RouteTableRouteArray{
 			routeTableRouteArgs,
-			//&ec2.RouteTableRouteArgs{
-			//CidrBlock:      pulumi.StringInput(cidrBlock),
-			//gatewayTypeArg: pulumi.StringInput(gatewayId),
-			//},
+		},
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String(routeTableName),
 		},
 	})
 	if createRouteTableErr != nil {
 		return nil, createRouteTableErr
 	}
 	return routeTableResource, nil
+}
+
+func AssociateRouteTable(ctx context.Context, routeTableId pulumi.StringInput, subnetId pulumi.StringInput) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
+
+	routeTableAssociationResource, associateRouteTableErr := ec2.NewRouteTableAssociationResource(ctx, "RouteTableAssociation", &ec2.RouteTableAssociationArgs{
+		SubnetId:     pulumi.Any(subnetId),
+		routeTableId: pulumi.Any(routeTableId),
+	})
+	if associateRouteTableErr != nil {
+		return nil, associateRouteTableErr
+	}
+
+	return routeTableAssociationResource, nil
 }
