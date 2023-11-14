@@ -5,9 +5,9 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string) (eipResourceObject *ec2.Eip, createEipErr error) {
+func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string, indexNum string) (eipResourceObject *ec2.Eip, createEipErr error) {
 	// TODO: add validations to make sure those are not empty
-	eipName := projectName + "-eip-" + eipPurpose
+	eipName := projectName + "-" + eipPurpose + "-eip-" + indexNum
 
 	eipResource, createEipErr := ec2.NewEip(ctx, eipName, &ec2.EipArgs{
 		Domain:         pulumi.String("vpc"),

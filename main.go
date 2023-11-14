@@ -2,6 +2,7 @@ package main
 
 import (
 	//"fmt"
+
 	"strings"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
@@ -33,52 +34,79 @@ func main() {
 		vpcId := vpcResource.ID()
 
 		// Create AWS Internet Gateway
-		igwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName)
+		inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1")
 		if createIgwErr != nil {
 			return createIgwErr
 		}
 
-		var subnetResource *ec2.Subnet
-		// Create AWS Subnets
+		inetGwId := inetGwResource.ID()
+
+		//var subnetResource *ec2.Subnet
+		// Create VPC Subnets
 		for subnetName, cidr := range subnetList {
 			var subnetType string
+			var gatewayType string
+
 			if strings.Contains(subnetName, "private") {
 				subnetType = "private"
+				gatewayType = "natgw"
 			} else {
 				subnetType = "public"
+				gatewayType = "igw"
 			}
 
 			var createSubnetErr error
-			// TODO: create a map of subnet ids/names to use in later associations
-			if subnetName == "public-subnet1" {
-				subnetResource, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
-			} else {
-				_, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
-			}
+			var currentSubnet *ec2.Subnet
+
+			// create subnets
+			currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
 			if createSubnetErr != nil {
 				return createSubnetErr
 			}
-		}
-		// TODO: remove after converting this to a map of IDs
-		subnetId := subnetResource.ID()
 
-		// Create NAT Gateway
-		// TODO: optional configure of how many NATGWs we want - specify cost implications
-		natGw, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, subnetId, igwResource)
-		if createNatGwErr != nil {
-			return createNatGwErr
-		}
+			currentSubnetId := currentSubnet.ID()
+			indexNum := subnetName[len(subnetName)-1:]
 
-		natGwId := natGw.ID()
+			if subnetType == "private" {
+				// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
+				// Create a NAT Gateway for each private subnet
+				var currentNatGateway *ec2.NatGateway
+				var createNatGwErr error
 
-		// TODO: get actual CIDR from map above
-		var tempCidrRange = "10.0.0.0/20"
-		var gatewayType = "NATGW"
+				currentNatGateway, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, inetGwResource)
+				if createNatGwErr != nil {
+					return createNatGwErr
+				}
 
-		// Create Route Tables - Private Subnets with NAT
-		_, createRouteTableErr := network.CreateRouteTable(ctx, projectName, vpcId, gatewayType, natGwId, tempCidrRange)
-		if createRouteTableErr != nil {
-			return createRouteTableErr
+				currentNatGwId := currentNatGateway.ID()
+
+				routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr)
+				if createRouteTableErr != nil {
+					return createRouteTableErr
+				}
+
+				routeTableId := routeTable.ID()
+
+				_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, routeTableId, currentSubnetId, subnetType)
+				if associateRouteTableErr != nil {
+					return associateRouteTableErr
+				}
+			}
+
+			if subnetType == "public" {
+				// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
+				routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr)
+				if createRouteTableErr != nil {
+					return createRouteTableErr
+				}
+
+				routeTableId := routeTable.ID()
+
+				_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, routeTableId, currentSubnetId, subnetType)
+				if associateRouteTableErr != nil {
+					return associateRouteTableErr
+				}
+			}
 		}
 
 		// TODO : check what to do with exports and if we need them at all
