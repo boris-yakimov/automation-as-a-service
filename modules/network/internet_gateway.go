@@ -13,7 +13,7 @@ func CreateInternetGateway(ctx *pulumi.Context, vpcId pulumi.StringInput, projec
 		VpcId: pulumi.StringInput(vpcId),
 		Tags: pulumi.StringMap{
 			"Name":      pulumi.String(igwName),
-			"ManagedBy": pulumi.String("Pulumi"),
+			"ManagedBy": pulumi.String("pulumi"),
 		},
 	})
 	if createIgwErr != nil {

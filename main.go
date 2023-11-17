@@ -8,6 +8,7 @@ import (
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
+		// TODO: configure a list of env vars or a config file that passes a list of things that should be created and if enabled add required variables for them
 		projectName := "pulumi-test"
 		vpcCidrRange := "10.0.0.0/16"
 		subnetList := map[string]string{
@@ -20,9 +21,20 @@ func main() {
 			"public-subnet3": "10.0.192.0/20",
 		}
 
+		listOfEcrRepos := map[string]string{
+			"test-ecr-repo1": "test-app-docker",
+			"test-ecr-repo2": "test-app-helm",
+			"test-ecr-repo3": "test-app-base-image",
+		}
+
 		networkProvisioningErr := provisioning.Network(ctx, projectName, vpcCidrRange, subnetList)
 		if networkProvisioningErr != nil {
 			return networkProvisioningErr
+		}
+
+		ecrProvisioningErr := provisioning.Ecr(ctx, projectName, listOfEcrRepos)
+		if ecrProvisioningErr != nil {
+			return ecrProvisioningErr
 		}
 
 		return nil
