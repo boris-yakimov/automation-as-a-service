@@ -1,12 +1,14 @@
 package network
 
 import (
+	"fmt"
+
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func CreateVPC(ctx *pulumi.Context, projectName string, vpcCidrRange string) (vpcResourceObject *ec2.Vpc, createVpcErr error) {
-	vpcName := projectName + "-vpc"
+	vpcName := fmt.Sprintf("%s-vpc", projectName)
 
 	vpcResource, createVpcErr := ec2.NewVpc(ctx, vpcName, &ec2.VpcArgs{
 		CidrBlock:          pulumi.String(vpcCidrRange),

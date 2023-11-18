@@ -46,7 +46,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		var currentSubnet *ec2.Subnet
 
 		// create subnets
-		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, subnetType, subnetName, cidr)
+		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, projectName, subnetType, subnetName, cidr)
 		if createSubnetErr != nil {
 			return createSubnetErr
 		}

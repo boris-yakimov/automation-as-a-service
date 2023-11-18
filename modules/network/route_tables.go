@@ -19,7 +19,7 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, 
 		return nil, fmt.Errorf("Invalid value for gatewayType - supported values are NAT and IGW")
 	}
 
-	routeTableName := projectName + "-" + subnetType + "-route-table-" + indexNum
+	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableRouteArgs := &ec2.RouteTableRouteArgs{
 		CidrBlock: pulumi.String(cidrBlock),
@@ -51,7 +51,7 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, 
 }
 
 func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, routeTableId pulumi.StringInput, subnetId pulumi.StringInput, subnetType string) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
-	routeTableAssocName := projectName + "-" + subnetType + "-route-table-" + indexNum
+	routeTableAssocName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableAssociationResource, associateRouteTableErr := ec2.NewRouteTableAssociation(ctx, routeTableAssocName, &ec2.RouteTableAssociationArgs{
 		SubnetId:     pulumi.StringInput(subnetId),

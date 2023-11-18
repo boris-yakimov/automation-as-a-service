@@ -1,13 +1,15 @@
 package network
 
 import (
+	"fmt"
+
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string, indexNum string) (eipResourceObject *ec2.Eip, createEipErr error) {
 	// TODO: add validations to make sure those are not empty
-	eipName := projectName + "-" + eipPurpose + "-eip-" + indexNum
+	eipName := fmt.Sprintf("%s-%s-eip-%s", projectName, eipPurpose, indexNum)
 
 	eipResource, createEipErr := ec2.NewEip(ctx, eipName, &ec2.EipArgs{
 		Domain:         pulumi.String("vpc"),

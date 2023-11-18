@@ -9,7 +9,8 @@ import (
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		// TODO: configure a list of env vars or a config file that passes a list of things that should be created and if enabled add required variables for them
-		projectName := "pulumi-test"
+		// TODO: set limit on how long a project name can be to not exhaust char limits when creating resources with longer names
+		projectName := "temp-test"
 		vpcCidrRange := "10.0.0.0/16"
 		subnetList := map[string]string{
 			"private-subnet1": "10.0.0.0/20", // 4k IPs per subnet
