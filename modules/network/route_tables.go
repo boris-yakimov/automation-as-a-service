@@ -8,15 +8,20 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcId pulumi.StringInput, gatewayType string, subnetType string, gatewayId pulumi.StringInput, cidrBlock string) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+// TODO seems route tables are not waiting for the natgateway and therefore failing to create, dependency on nat resource doesn't seem to wait for it
+func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcId pulumi.StringInput, gatewayType string, subnetType string, gatewayId pulumi.StringInput, cidrBlock string, gatewayResource interface{}) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
 	var gatewayTypeArg string
+	var gatewayObjectType pulumi.Resource
 
-	if gatewayType == "natgw" {
+	switch currentGatewayResourceType := gatewayResource.(type) {
+	case *ec2.NatGateway:
 		gatewayTypeArg = "NatGatewayId"
-	} else if gatewayType == "igw" {
+		gatewayObjectType = currentGatewayResourceType
+	case *ec2.InternetGateway:
 		gatewayTypeArg = "GatewayId"
-	} else {
-		return nil, fmt.Errorf("Invalid value for gatewayType - supported values are NAT and IGW")
+		gatewayObjectType = currentGatewayResourceType
+	default:
+		return nil, fmt.Errorf("Invalid value for gatewayResource - supported types are *ec2.NatGateway and *ec2.InternetGateway ")
 	}
 
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
@@ -42,7 +47,10 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, 
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(routeTableName),
 		},
-	})
+	},
+		pulumi.Parent(gatewayObjectType),
+		pulumi.DependsOn([]pulumi.Resource{gatewayObjectType}),
+	)
 	if createRouteTableErr != nil {
 		return nil, createRouteTableErr
 	}
@@ -50,13 +58,17 @@ func CreateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, 
 	return routeTableResource, nil
 }
 
-func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, routeTableId pulumi.StringInput, subnetId pulumi.StringInput, subnetType string) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
+func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, subnetId pulumi.StringInput, subnetType string, routeTable *ec2.RouteTable) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
 	routeTableAssocName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
+	//routeTableId := routeTable.ID()
 
 	routeTableAssociationResource, associateRouteTableErr := ec2.NewRouteTableAssociation(ctx, routeTableAssocName, &ec2.RouteTableAssociationArgs{
 		SubnetId:     pulumi.StringInput(subnetId),
-		RouteTableId: pulumi.StringInput(routeTableId),
-	})
+		RouteTableId: pulumi.StringInput(routeTable.ID()),
+	},
+		pulumi.Parent(routeTable),
+		pulumi.DependsOn([]pulumi.Resource{routeTable}),
+	)
 	if associateRouteTableErr != nil {
 		return nil, associateRouteTableErr
 	}

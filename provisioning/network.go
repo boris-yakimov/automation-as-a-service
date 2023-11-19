@@ -16,10 +16,12 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		return createVpcErr
 	}
 
+	// TODO: check if it makes sense for this to be refactored to happen in each function instead of on provisioning module
 	vpcId := vpcResource.ID()
 
 	// Create AWS Internet Gateway
-	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1")
+	// TODO: what should I do with this hardcoded index number
+	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
 	if createIgwErr != nil {
 		return createIgwErr
 	}
@@ -46,7 +48,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		var currentSubnet *ec2.Subnet
 
 		// create subnets
-		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, projectName, subnetType, subnetName, cidr)
+		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, projectName, subnetType, subnetName, cidr, vpcResource)
 		if createSubnetErr != nil {
 			return createSubnetErr
 		}
@@ -61,21 +63,19 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 			var currentNatGateway *ec2.NatGateway
 			var createNatGwErr error
 
-			currentNatGateway, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, inetGwResource)
+			currentNatGateway, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
 			currentNatGwId := currentNatGateway.ID()
 
-			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr)
+			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr, currentNatGateway)
 			if createRouteTableErr != nil {
 				return createRouteTableErr
 			}
 
-			routeTableId := routeTable.ID()
-
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, routeTableId, currentSubnetId, subnetType)
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
 			if associateRouteTableErr != nil {
 				return associateRouteTableErr
 			}
@@ -83,14 +83,14 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		if subnetType == "public" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr)
+			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr, inetGwResource)
 			if createRouteTableErr != nil {
 				return createRouteTableErr
 			}
 
-			routeTableId := routeTable.ID()
+			//routeTableId := routeTable.ID()
 
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, routeTableId, currentSubnetId, subnetType)
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
 			if associateRouteTableErr != nil {
 				return associateRouteTableErr
 			}

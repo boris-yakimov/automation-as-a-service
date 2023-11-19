@@ -7,7 +7,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string, indexNum string) (eipResourceObject *ec2.Eip, createEipErr error) {
+func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string, indexNum string, vpcResource *ec2.Vpc) (eipResourceObject *ec2.Eip, createEipErr error) {
 	// TODO: add validations to make sure those are not empty
 	eipName := fmt.Sprintf("%s-%s-eip-%s", projectName, eipPurpose, indexNum)
 
@@ -18,9 +18,14 @@ func CreateEIP(ctx *pulumi.Context, projectName string, eipPurpose string, index
 			"Name":      pulumi.String(eipName),
 			"ManagedBy": pulumi.String("Pulumi"),
 		},
-	})
+	}, pulumi.DependsOn([]pulumi.Resource{
+		vpcResource,
+	}), pulumi.Parent(vpcResource),
+	)
+
 	if createEipErr != nil {
 		return nil, createEipErr
 	}
+
 	return eipResource, nil
 }

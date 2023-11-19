@@ -7,7 +7,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateSubnet(ctx *pulumi.Context, vpcId pulumi.StringInput, projectName string, subnetType string, subnetName string, subnetRange string) (subnetResourceOjbect *ec2.Subnet, createSubnetErr error) {
+func CreateSubnet(ctx *pulumi.Context, vpcId pulumi.StringInput, projectName string, subnetType string, subnetName string, subnetRange string, vpcResource *ec2.Vpc) (subnetResourceOjbect *ec2.Subnet, createSubnetErr error) {
 	if subnetType != "public" && subnetType != "private" {
 		return nil, fmt.Errorf("Incorrect subnet type, supported types are \"public\" and \"private\"")
 	}
@@ -23,7 +23,8 @@ func CreateSubnet(ctx *pulumi.Context, vpcId pulumi.StringInput, projectName str
 			"Name":      pulumi.String(subnetName),
 			"ManagedBy": pulumi.String("Pulumi"),
 		},
-	})
+	}, pulumi.Parent(vpcResource),
+	)
 	if createSubnetErr != nil {
 		return nil, createSubnetErr
 	}
