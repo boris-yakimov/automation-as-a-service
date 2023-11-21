@@ -10,6 +10,8 @@ func CreateECR(ctx *pulumi.Context, projectName string, ecrRepoName string) (ecr
 
 	// TODO: add optional flag if ImageScanning should be enabled - low prio
 	ecrResource, createEcrError = ecr.NewRepository(ctx, ecrRepoName, &ecr.RepositoryArgs{
+		// passing name as input is not required but otherwise generates random strings at the end of name causing issues attaching policy after since policy supports only attachment by name (which is also not an output param of create ECR repo, therefore cannot be taken dynamically by policy creation...(this is annoying in pulumi)
+		Name: pulumi.String(ecrRepoName),
 		ImageScanningConfiguration: &ecr.RepositoryImageScanningConfigurationArgs{
 			ScanOnPush: pulumi.Bool(true),
 		},
@@ -54,17 +56,15 @@ func ConfigureEcrLifecyclePolicy(ctx *pulumi.Context, ecrRepoName string, ecrLif
 					"description": "Expire all images older than <imateRetentionPeriod> days",
 					"selection": {
 						"tagStatus": "any",
-						"countType": "sinceImagePushed",
-						"countUnit": "days",
-						"countNumber": 90 
+						"countType": "imageCountMoreThan",
+						"countNumber": 50 
 					},
 					"action": {
 						"type": "expire"
 					}
 				}
 			]
-		}`),
-	},
+		}`)},
 		pulumi.Parent(ecrRepoResource),
 		pulumi.DependsOn([]pulumi.Resource{ecrRepoResource}),
 	)

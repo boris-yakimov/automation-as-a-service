@@ -21,12 +21,12 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 	// Create AWS Internet Gateway
 	// TODO: what should I do with this hardcoded index number
-	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
+	_, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
 	if createIgwErr != nil {
 		return createIgwErr
 	}
 
-	inetGwId := inetGwResource.ID()
+	//inetGwId := inetGwResource.ID()
 
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
 
@@ -34,14 +34,14 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	// Create VPC Subnets
 	for subnetName, cidr := range subnetList {
 		var subnetType string
-		var gatewayType string
+		//var gatewayType string
 
 		if strings.Contains(subnetName, "private") {
 			subnetType = "private"
-			gatewayType = "natgw"
+			//gatewayType = "natgw"
 		} else {
 			subnetType = "public"
-			gatewayType = "igw"
+			//gatewayType = "igw"
 		}
 
 		var createSubnetErr error
@@ -60,40 +60,40 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		if subnetType == "private" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
 			// Create a NAT Gateway for each private subnet
-			var currentNatGateway *ec2.NatGateway
+			//var currentNatGateway *ec2.NatGateway
 			var createNatGwErr error
 
-			currentNatGateway, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
+			_, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
-			currentNatGwId := currentNatGateway.ID()
+			//currentNatGwId := currentNatGateway.ID()
 
-			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr, currentNatGateway)
-			if createRouteTableErr != nil {
-				return createRouteTableErr
-			}
+			//routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr, currentNatGateway)
+			//if createRouteTableErr != nil {
+			//return createRouteTableErr
+			//}
 
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
-			if associateRouteTableErr != nil {
-				return associateRouteTableErr
-			}
+			//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			//if associateRouteTableErr != nil {
+			//return associateRouteTableErr
+			//}
 		}
 
 		if subnetType == "public" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr, inetGwResource)
-			if createRouteTableErr != nil {
-				return createRouteTableErr
-			}
+			//routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr, inetGwResource)
+			//if createRouteTableErr != nil {
+			//return createRouteTableErr
+			//}
 
 			//routeTableId := routeTable.ID()
 
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
-			if associateRouteTableErr != nil {
-				return associateRouteTableErr
-			}
+			//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			//if associateRouteTableErr != nil {
+			//return associateRouteTableErr
+			//}
 		}
 	}
 
