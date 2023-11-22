@@ -8,7 +8,6 @@ import (
 )
 
 func Ecr(ctx *pulumi.Context, projectName string, listOfEcrRepos map[string]string) (createListOfEcrReposErr error) {
-	// TODO: ecrResource should be in a map of all repos that is returned at the end
 	// Create ECR repos
 	for _, ecrRepoName := range listOfEcrRepos {
 		ecrRepoResource, createListOfEcrReposErr := ecr.CreateECR(ctx, projectName, ecrRepoName)

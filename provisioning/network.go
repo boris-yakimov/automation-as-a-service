@@ -21,7 +21,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 	// Create AWS Internet Gateway
 	// TODO: what should I do with this hardcoded index number
-	_, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
+	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
 	if createIgwErr != nil {
 		return createIgwErr
 	}
@@ -63,37 +63,35 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 			//var currentNatGateway *ec2.NatGateway
 			var createNatGwErr error
 
-			_, createNatGwErr = network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
+			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
-			//currentNatGwId := currentNatGateway.ID()
+			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcId, subnetType, cidr, currentNatGateway)
+			if createNatRouteTableErr != nil {
+				return createNatRouteTableErr
+			}
 
-			//routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, currentNatGwId, cidr, currentNatGateway)
-			//if createRouteTableErr != nil {
-			//return createRouteTableErr
-			//}
-
-			//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
-			//if associateRouteTableErr != nil {
-			//return associateRouteTableErr
-			//}
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			if associateRouteTableErr != nil {
+				return associateRouteTableErr
+			}
 		}
 
 		if subnetType == "public" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			//routeTable, createRouteTableErr := network.CreateRouteTable(ctx, projectName, indexNum, vpcId, gatewayType, subnetType, inetGwId, cidr, inetGwResource)
-			//if createRouteTableErr != nil {
-			//return createRouteTableErr
-			//}
+			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcId, subnetType, cidr, inetGwResource)
+			if createIgwRouteTableErr != nil {
+				return createIgwRouteTableErr
+			}
 
 			//routeTableId := routeTable.ID()
 
-			//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
-			//if associateRouteTableErr != nil {
-			//return associateRouteTableErr
-			//}
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			if associateRouteTableErr != nil {
+				return associateRouteTableErr
+			}
 		}
 	}
 

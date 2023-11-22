@@ -26,14 +26,10 @@ func CreateECR(ctx *pulumi.Context, projectName string, ecrRepoName string) (ecr
 		return nil, createEcrError
 	}
 
-	// TODO: this has to be a map of objects, even if it contains a single one
 	return ecrResource, nil
 }
 
-// TODO: for some reason those are still trying to be created before the actual ECR repos are, although they have both a dependency and a parent set
 func ConfigureEcrLifecyclePolicy(ctx *pulumi.Context, ecrRepoName string, ecrLifecyclePolicyName string, imageRetentionPeriod string, ecrRepoResource *ecr.Repository) (configureEcrLifecyclePolicyErr error) {
-	//lifeCyclePolicyJson :=
-
 	_, configureEcrLifecyclePolicyErr = ecr.NewLifecyclePolicy(ctx, ecrLifecyclePolicyName, &ecr.LifecyclePolicyArgs{
 		Repository: pulumi.String(ecrRepoName),
 		Policy: pulumi.Any(`{
