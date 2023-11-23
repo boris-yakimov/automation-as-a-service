@@ -7,7 +7,6 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-// TODO: check why VPC id is not used here
 func CreateNatGateway(ctx *pulumi.Context, projectName string, indexNum string, subnetResource *ec2.Subnet, vpcResource *ec2.Vpc) (natGwResourceObject *ec2.NatGateway, createNatGwErr error) {
 	// TODO: add validations to make sure those are not empty
 	natGwName := fmt.Sprintf("%s-natgw-%s", projectName, indexNum)

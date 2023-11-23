@@ -27,14 +27,11 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	// Create VPC Subnets
 	for subnetName, cidr := range subnetList {
 		var subnetType string
-		//var gatewayType string
 
 		if strings.Contains(subnetName, "private") {
 			subnetType = "private"
-			//gatewayType = "natgw"
 		} else {
 			subnetType = "public"
-			//gatewayType = "igw"
 		}
 
 		var createSubnetErr error
@@ -48,40 +45,39 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		indexNum := subnetName[len(subnetName)-1:]
 
-		// TODO: NAT gateways seem to be placed in private subnets, they should be in public
-		if subnetType == "private" {
-			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			// Create a NAT Gateway for each private subnet
-			var createNatGwErr error
-
-			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
+		//var routeTablePrivate *ec2.RouteTable
+		var currentNatGateway *ec2.NatGateway
+		var createNatGwErr error
+		if subnetType == "public" {
+			currentNatGateway, createNatGwErr = network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
-			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, subnetType, "0.0.0.0/0", currentNatGateway)
-			if createNatRouteTableErr != nil {
-				return createNatRouteTableErr
-			}
-
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, subnetType, routeTable)
-			if associateRouteTableErr != nil {
-				return associateRouteTableErr
-			}
-		}
-
-		if subnetType == "public" {
-			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcResource, subnetType, "0.0.0.0/0", inetGwResource)
+			routeTablePublic, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
 				return createIgwRouteTableErr
 			}
 
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, subnetType, routeTable)
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, "public", routeTablePublic)
 			if associateRouteTableErr != nil {
 				return associateRouteTableErr
 			}
 		}
+
+		// TODO: CONTINUE HERE !! - nat gateways are now created in the public subnet okay, however, route table association for private subnets doesn't work (seems it is trying to attach route tables to public ones instead)
+		if subnetType == "private" {
+			routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", currentNatGateway)
+			if createNatRouteTableErr != nil {
+				return createNatRouteTableErr
+			}
+			// Do nothing for private subnets
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, "private", routeTablePrivate)
+			if associateRouteTableErr != nil {
+				return associateRouteTableErr
+			}
+		}
+
 	}
 
 	// TODO : check what to do with exports and if we need them at all
