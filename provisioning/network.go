@@ -53,7 +53,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 			return createSubnetErr
 		}
 
-		currentSubnetId := currentSubnet.ID()
 		indexNum := subnetName[len(subnetName)-1:]
 
 		// TODO: make sure that 3 NATs are actually placed in 3 separate AZs
@@ -63,17 +62,17 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 			//var currentNatGateway *ec2.NatGateway
 			var createNatGwErr error
 
-			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnetId, vpcResource)
+			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnet, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
-			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcId, subnetType, cidr, currentNatGateway)
+			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcId, subnetType, "0.0.0.0/0", currentNatGateway)
 			if createNatRouteTableErr != nil {
 				return createNatRouteTableErr
 			}
 
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, subnetType, routeTable)
 			if associateRouteTableErr != nil {
 				return associateRouteTableErr
 			}
@@ -81,14 +80,12 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		if subnetType == "public" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcId, subnetType, cidr, inetGwResource)
+			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcId, subnetType, "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
 				return createIgwRouteTableErr
 			}
 
-			//routeTableId := routeTable.ID()
-
-			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnetId, subnetType, routeTable)
+			_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, subnetType, routeTable)
 			if associateRouteTableErr != nil {
 				return associateRouteTableErr
 			}

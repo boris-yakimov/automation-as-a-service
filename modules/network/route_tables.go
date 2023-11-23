@@ -62,12 +62,11 @@ func CreateIgwRouteTable(ctx *pulumi.Context, projectName string, indexNum strin
 	return routeTableResource, nil
 }
 
-// TODO: panic error happens only when route table is reached, everything else gets created successfully
-func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, subnetId pulumi.StringInput, subnetType string, routeTable *ec2.RouteTable) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
+func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, subnetResource *ec2.Subnet, subnetType string, routeTable *ec2.RouteTable) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
 	routeTableAssocName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableAssociationResource, associateRouteTableErr := ec2.NewRouteTableAssociation(ctx, routeTableAssocName, &ec2.RouteTableAssociationArgs{
-		SubnetId:     pulumi.StringInput(subnetId),
+		SubnetId:     pulumi.StringInput(subnetResource.ID()),
 		RouteTableId: pulumi.StringInput(routeTable.ID()),
 	},
 		pulumi.Parent(routeTable),
