@@ -16,21 +16,14 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		return createVpcErr
 	}
 
-	// TODO: check if it makes sense for this to be refactored to happen in each function instead of on provisioning module
-	vpcId := vpcResource.ID()
-
 	// Create AWS Internet Gateway
 	// TODO: what should I do with this hardcoded index number
-	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, vpcId, projectName, "1", vpcResource)
+	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, projectName, "1", vpcResource)
 	if createIgwErr != nil {
 		return createIgwErr
 	}
 
-	//inetGwId := inetGwResource.ID()
-
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
-
-	//var subnetResource *ec2.Subnet
 	// Create VPC Subnets
 	for subnetName, cidr := range subnetList {
 		var subnetType string
@@ -48,26 +41,25 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		var currentSubnet *ec2.Subnet
 
 		// create subnets
-		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, vpcId, projectName, subnetType, subnetName, cidr, vpcResource)
+		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, projectName, subnetType, subnetName, cidr, vpcResource)
 		if createSubnetErr != nil {
 			return createSubnetErr
 		}
 
 		indexNum := subnetName[len(subnetName)-1:]
 
-		// TODO: make sure that 3 NATs are actually placed in 3 separate AZs
+		// TODO: NAT gateways seem to be placed in private subnets, they should be in public
 		if subnetType == "private" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
 			// Create a NAT Gateway for each private subnet
-			//var currentNatGateway *ec2.NatGateway
 			var createNatGwErr error
 
-			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, vpcId, projectName, indexNum, currentSubnet, vpcResource)
+			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
 
-			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcId, subnetType, "0.0.0.0/0", currentNatGateway)
+			routeTable, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, subnetType, "0.0.0.0/0", currentNatGateway)
 			if createNatRouteTableErr != nil {
 				return createNatRouteTableErr
 			}
@@ -80,7 +72,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		if subnetType == "public" {
 			// TODO: do we really need to create a route table per subnet - maybe create one per public/private type
-			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcId, subnetType, "0.0.0.0/0", inetGwResource)
+			routeTable, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcResource, subnetType, "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
 				return createIgwRouteTableErr
 			}
@@ -93,6 +85,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	}
 
 	// TODO : check what to do with exports and if we need them at all
-	//ctx.Export("vpcId", vpcId)
+	//ctx.Export("vpcResource", vpcResource)
 	return nil
 }
