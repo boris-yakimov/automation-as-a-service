@@ -11,14 +11,12 @@ import (
 func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, natGatewayResource *ec2.NatGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
-	natGatewayId := natGatewayResource.ID()
-
 	routeTableResource, createRouteTableErr := ec2.NewRouteTable(ctx, routeTableName, &ec2.RouteTableArgs{
 		VpcId: pulumi.StringInput(vpcResource.ID()),
 		Routes: ec2.RouteTableRouteArray{
 			&ec2.RouteTableRouteArgs{
 				CidrBlock:    pulumi.String(cidrBlock),
-				NatGatewayId: pulumi.StringInput(natGatewayId),
+				NatGatewayId: pulumi.StringInput(natGatewayResource.ID()),
 			},
 		},
 		Tags: pulumi.StringMap{
@@ -38,14 +36,12 @@ func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum strin
 func CreateIgwRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, inetGatewayResource *ec2.InternetGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
-	inetGatewayId := inetGatewayResource.ID()
-
 	routeTableResource, createRouteTableErr := ec2.NewRouteTable(ctx, routeTableName, &ec2.RouteTableArgs{
 		VpcId: pulumi.StringInput(vpcResource.ID()),
 		Routes: ec2.RouteTableRouteArray{
 			&ec2.RouteTableRouteArgs{
 				CidrBlock: pulumi.String(cidrBlock),
-				GatewayId: pulumi.StringInput(inetGatewayId),
+				GatewayId: pulumi.StringInput(inetGatewayResource.ID()),
 			},
 		},
 		Tags: pulumi.StringMap{
