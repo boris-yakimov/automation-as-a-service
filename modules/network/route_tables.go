@@ -7,8 +7,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-// TODO seems route tables are not waiting for the natgateway and therefore failing to create, dependency on nat resource doesn't seem to wait for it
 func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, natGatewayResource *ec2.NatGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+	// TODO: add validations to make sure those are not empty
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableResource, createRouteTableErr := ec2.NewRouteTable(ctx, routeTableName, &ec2.RouteTableArgs{
@@ -34,6 +34,7 @@ func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum strin
 }
 
 func CreateIgwRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, inetGatewayResource *ec2.InternetGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+	// TODO: add validations to make sure those are not empty
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableResource, createRouteTableErr := ec2.NewRouteTable(ctx, routeTableName, &ec2.RouteTableArgs{
@@ -59,6 +60,7 @@ func CreateIgwRouteTable(ctx *pulumi.Context, projectName string, indexNum strin
 }
 
 func AssociateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, subnetResource *ec2.Subnet, subnetType string, routeTable *ec2.RouteTable) (routeTableAssociationObject *ec2.RouteTableAssociation, associateRouteTableErr error) {
+	// TODO: add validations to make sure those are not empty
 	routeTableAssocName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
 	routeTableAssociationResource, associateRouteTableErr := ec2.NewRouteTableAssociation(ctx, routeTableAssocName, &ec2.RouteTableAssociationArgs{

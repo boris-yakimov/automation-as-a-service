@@ -8,6 +8,7 @@ import (
 )
 
 func CreateVPC(ctx *pulumi.Context, projectName string, vpcCidrRange string) (vpcResourceObject *ec2.Vpc, createVpcErr error) {
+	// TODO: add validations to make sure those are not empty
 	vpcName := fmt.Sprintf("%s-vpc", projectName)
 
 	vpcResource, createVpcErr := ec2.NewVpc(ctx, vpcName, &ec2.VpcArgs{

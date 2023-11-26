@@ -27,10 +27,9 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	}
 
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
-	// Create VPC Subnets
-	//var subnetToNatMapping map[*ec2.Subnet]*ec2.NatGateway
 	var natGateways []*ec2.NatGateway
 	var privateSubnets []*ec2.Subnet
+
 	for subnetName, cidr := range subnetList {
 		var subnetType string
 
@@ -43,7 +42,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		var createSubnetErr error
 		var currentSubnet *ec2.Subnet
 
-		// create subnets
 		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, projectName, subnetType, subnetName, cidr, vpcResource)
 		if createSubnetErr != nil {
 			return createSubnetErr
@@ -51,9 +49,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		indexNum := subnetName[len(subnetName)-1:]
 
-		//var routeTablePrivate *ec2.RouteTable
-		//var currentNatGateway *ec2.NatGateway
-		//var createNatGwErr error
 		if subnetType == "public" {
 			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
 			fmt.Println(reflect.TypeOf(currentNatGateway))
@@ -61,7 +56,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 				return createNatGwErr
 			}
 			natGateways = append(natGateways, currentNatGateway)
-			//subnetToNatMapping[currentSubnet] = currentNatGateway
 
 			routeTablePublic, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
@@ -79,47 +73,17 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		}
 	}
 
-	//if subnetType == "private" {
-	//fmt.Println("HERE")
-	//fmt.Println(currentNatGateway)
-	//_, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", currentNatGateway)
-	//if createNatRouteTableErr != nil {
-	//return createNatRouteTableErr
-	//}
-
-	// Do nothing for private subnets
-	//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, "private", routeTablePrivate)
-	//if associateRouteTableErr != nil {
-	//return associateRouteTableErr
-	//}
-	//for currentSubnet, currentNatGateway := range subnetToNatMapping {
-	//for subnetName, _ := range subnetList {
 	for i, subnetResource := range privateSubnets {
-		//if strings.Contains(subnetName, "private") {
-		//indexNum := subnetName[len(subnetName)-1:]
-		//subnetId, getSubnetIdErr := network.GetSubnetIdByName(ctx, subnetName)
-		//if getSubnetIdErr != nil {
-		//return getSubnetIdErr
-		//}
-		//currentSubnet, getCurrentSubnetErr := network.GetSubnetResource(ctx, subnetName, subnetId)
-		//if getCurrentSubnetErr != nil {
-		//return getCurrentSubnetErr
-		//}
-		//for i, _ := range natGateways {
 		indexNum := strconv.Itoa(i + 1)
-		fmt.Println("index is " + indexNum)
-		fmt.Println(natGateways[i])
 		routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}
 
-		// Do nothing for private subnets
 		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, subnetResource, "private", routeTablePrivate)
 		if associateRouteTableErr != nil {
 			return associateRouteTableErr
 		}
-		//}
 	}
 
 	// TODO : check what to do with exports and if we need them at all

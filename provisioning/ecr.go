@@ -19,6 +19,7 @@ func Ecr(ctx *pulumi.Context, projectName string, listOfEcrRepos map[string]stri
 		var enableEcrLifecyclePolicy bool = true
 		var imageRetentionPeriodInDays = "90"
 		var ecrLifecyclePolicyName = fmt.Sprintf("%s-lifecycle-policy", ecrRepoName)
+
 		if enableEcrLifecyclePolicy {
 			// Attach lifecycle policy to each ECR repo
 			configureEcrLifecycleErr := ecr.ConfigureEcrLifecyclePolicy(ctx, ecrRepoName, ecrLifecyclePolicyName, imageRetentionPeriodInDays, ecrRepoResource)

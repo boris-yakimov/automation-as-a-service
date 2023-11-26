@@ -12,6 +12,7 @@ func CreateSubnet(ctx *pulumi.Context, projectName string, subnetType string, su
 		return nil, fmt.Errorf("Incorrect subnet type, supported types are \"public\" and \"private\"")
 	}
 
+	// TODO: add validations to make sure those are not empty
 	fullSubnetName := fmt.Sprintf("%s-%s", projectName, subnetName)
 
 	//TODO: add check if subnetRange not in CIDR format
@@ -30,30 +31,3 @@ func CreateSubnet(ctx *pulumi.Context, projectName string, subnetType string, su
 
 	return subnetResource, nil
 }
-
-func GetSubnetIdByName(ctx *pulumi.Context, subnetName string) (subnetId string, lookUpSubnetError error) {
-	lookupSubnetResult, lookUpSubnetError := ec2.LookupSubnet(ctx, &ec2.LookupSubnetArgs{
-		Filters: []ec2.GetSubnetFilter{
-			{
-				Name: "tag:Name",
-				Values: []string{
-					subnetName,
-				},
-			},
-		},
-	}, nil)
-	if lookUpSubnetError != nil {
-		return "", lookUpSubnetError
-	}
-
-	return lookupSubnetResult.Id, nil
-}
-
-//func GetSubnetResource(ctx *pulumi.Context, subnetName string, subnetId string) (subnetResource *ec2.Subnet, getSubnetResourceErr error) {
-//subnetResource, getSubnetResourceErr = ec2.GetSubnet(ctx, subnetName, pulumi.IDInput(subnetId), nil)
-//if getSubnetResourceErr != nil {
-//return nil, getSubnetResourceErr
-//}
-
-//return subnetResource, nil
-//}
