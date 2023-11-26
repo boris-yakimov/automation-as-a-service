@@ -28,8 +28,10 @@ func CreateNatGateway(ctx *pulumi.Context, projectName string, indexNum string, 
 		eipResource,
 	}), pulumi.Parent(eipResource),
 	)
+	fmt.Printf("Creating NAT gateway:%s", indexNum)
 	if createNatGwErr != nil {
 		return nil, createNatGwErr
 	}
+
 	return natGwResource, nil
 }

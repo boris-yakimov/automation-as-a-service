@@ -15,7 +15,6 @@ func CreateSubnet(ctx *pulumi.Context, projectName string, subnetType string, su
 	fullSubnetName := fmt.Sprintf("%s-%s", projectName, subnetName)
 
 	//TODO: add check if subnetRange not in CIDR format
-
 	subnetResource, createSubnetErr := ec2.NewSubnet(ctx, fullSubnetName, &ec2.SubnetArgs{
 		VpcId:     pulumi.StringInput(vpcResource.ID()),
 		CidrBlock: pulumi.String(subnetRange),
@@ -28,6 +27,7 @@ func CreateSubnet(ctx *pulumi.Context, projectName string, subnetType string, su
 	if createSubnetErr != nil {
 		return nil, createSubnetErr
 	}
+
 	return subnetResource, nil
 }
 
@@ -45,13 +45,15 @@ func GetSubnetIdByName(ctx *pulumi.Context, subnetName string) (subnetId string,
 	if lookUpSubnetError != nil {
 		return "", lookUpSubnetError
 	}
+
 	return lookupSubnetResult.Id, nil
 }
 
-func GetSubnetResource(ctx *pulumi.Context, subnetName string, subnetId string) (subnetResource *ec2.Subnet, getSubnetResourceErr error) {
-	subnetResource, getSubnetResourceErr = ec2.GetSubnet(ctx, subnetName, pulumi.IDInput(subnetId), nil)
-	if getSubnetResourceErr != nil {
-		return nil, getSubnetResourceErr
-	}
-	return subnetResource, nil
-}
+//func GetSubnetResource(ctx *pulumi.Context, subnetName string, subnetId string) (subnetResource *ec2.Subnet, getSubnetResourceErr error) {
+//subnetResource, getSubnetResourceErr = ec2.GetSubnet(ctx, subnetName, pulumi.IDInput(subnetId), nil)
+//if getSubnetResourceErr != nil {
+//return nil, getSubnetResourceErr
+//}
+
+//return subnetResource, nil
+//}

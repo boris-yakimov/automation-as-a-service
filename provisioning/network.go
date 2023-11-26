@@ -2,6 +2,9 @@ package provisioning
 
 import (
 	"automation-as-a-service/modules/network"
+	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
@@ -27,6 +30,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	// Create VPC Subnets
 	//var subnetToNatMapping map[*ec2.Subnet]*ec2.NatGateway
 	var natGateways []*ec2.NatGateway
+	var privateSubnets []*ec2.Subnet
 	for subnetName, cidr := range subnetList {
 		var subnetType string
 
@@ -48,8 +52,11 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		indexNum := subnetName[len(subnetName)-1:]
 
 		//var routeTablePrivate *ec2.RouteTable
+		//var currentNatGateway *ec2.NatGateway
+		//var createNatGwErr error
 		if subnetType == "public" {
 			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
+			fmt.Println(reflect.TypeOf(currentNatGateway))
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
@@ -66,33 +73,53 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 				return associateRouteTableErr
 			}
 		}
+
+		if subnetType == "private" {
+			privateSubnets = append(privateSubnets, currentSubnet)
+		}
 	}
 
-	//for currentSubnet, currentNatGateway := range subnetToNatMapping {
-	for subnetName, _ := range subnetList {
-		if strings.Contains(subnetName, "private") {
-			indexNum := subnetName[len(subnetName)-1:]
-			subnetId, getSubnetIdErr := network.GetSubnetIdByName(ctx, subnetName)
-			if getSubnetIdErr != nil {
-				return getSubnetIdErr
-			}
-			currentSubnet, getCurrentSubnetErr := network.GetSubnetResource(ctx, subnetName, subnetId)
-			if getCurrentSubnetErr != nil {
-				return getCurrentSubnetErr
-			}
-			for _, currentNatGateway := range natGateways {
-				routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", currentNatGateway)
-				if createNatRouteTableErr != nil {
-					return createNatRouteTableErr
-				}
+	//if subnetType == "private" {
+	//fmt.Println("HERE")
+	//fmt.Println(currentNatGateway)
+	//_, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", currentNatGateway)
+	//if createNatRouteTableErr != nil {
+	//return createNatRouteTableErr
+	//}
 
-				// Do nothing for private subnets
-				_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, "private", routeTablePrivate)
-				if associateRouteTableErr != nil {
-					return associateRouteTableErr
-				}
-			}
+	// Do nothing for private subnets
+	//_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, currentSubnet, "private", routeTablePrivate)
+	//if associateRouteTableErr != nil {
+	//return associateRouteTableErr
+	//}
+	//for currentSubnet, currentNatGateway := range subnetToNatMapping {
+	//for subnetName, _ := range subnetList {
+	for i, subnetResource := range privateSubnets {
+		//if strings.Contains(subnetName, "private") {
+		//indexNum := subnetName[len(subnetName)-1:]
+		//subnetId, getSubnetIdErr := network.GetSubnetIdByName(ctx, subnetName)
+		//if getSubnetIdErr != nil {
+		//return getSubnetIdErr
+		//}
+		//currentSubnet, getCurrentSubnetErr := network.GetSubnetResource(ctx, subnetName, subnetId)
+		//if getCurrentSubnetErr != nil {
+		//return getCurrentSubnetErr
+		//}
+		//for i, _ := range natGateways {
+		indexNum := strconv.Itoa(i + 1)
+		fmt.Println("index is " + indexNum)
+		fmt.Println(natGateways[i])
+		routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
+		if createNatRouteTableErr != nil {
+			return createNatRouteTableErr
 		}
+
+		// Do nothing for private subnets
+		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, subnetResource, "private", routeTablePrivate)
+		if associateRouteTableErr != nil {
+			return associateRouteTableErr
+		}
+		//}
 	}
 
 	// TODO : check what to do with exports and if we need them at all
