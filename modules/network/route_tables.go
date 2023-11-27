@@ -43,7 +43,7 @@ func CreatePublicRouteTable(ctx *pulumi.Context, projectName string, indexNum st
 			&ec2.RouteTableRouteArgs{
 				CidrBlock: pulumi.String(cidrBlock),
 				GatewayId: pulumi.StringInput(inetGatewayResource.ID()),
-			},
+			}, // TODO: add prefix list with destinations for VPC gateway endpoints - can it be done with a variadic function to dynamically pick how many endpoints can be passed, since they will likely be with different types
 		},
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(routeTableName),
