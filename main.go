@@ -12,6 +12,7 @@ func main() {
 		// TODO: set limit on how long a project name can be to not exhaust char limits when creating resources with longer names
 		// TODO: add unit tests
 		projectName := "temp-test"
+		mainRegion := "eu-central-1"
 		vpcCidrRange := "10.0.0.0/16"
 		subnetList := map[string]string{
 			"private-subnet1": "10.0.0.0/20", // 4k IPs per subnet
@@ -29,7 +30,7 @@ func main() {
 			"test-ecr-repo3": "test-app-base-image",
 		}
 
-		networkProvisioningErr := provisioning.Network(ctx, projectName, vpcCidrRange, subnetList)
+		networkProvisioningErr := provisioning.Network(ctx, projectName, mainRegion, vpcCidrRange, subnetList)
 		if networkProvisioningErr != nil {
 			return networkProvisioningErr
 		}

@@ -2,8 +2,6 @@ package provisioning
 
 import (
 	"automation-as-a-service/modules/network"
-	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -11,15 +9,15 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subnetList map[string]string) (networkProvisioningError error) {
+func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidrRange string, subnetList map[string]string) (networkProvisioningError error) {
 
-	// Create AWS VPC
+	// VPC
 	vpcResource, createVpcErr := network.CreateVPC(ctx, projectName, vpcCidrRange)
 	if createVpcErr != nil {
 		return createVpcErr
 	}
 
-	// Create AWS Internet Gateway
+	// Internet Gateway
 	// TODO: what should I do with this hardcoded index number
 	inetGwResource, createIgwErr := network.CreateInternetGateway(ctx, projectName, "1", vpcResource)
 	if createIgwErr != nil {
@@ -27,6 +25,8 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 	}
 
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
+
+	// Public Subnets - NAT gateway and Route tables
 	var natGateways []*ec2.NatGateway
 	var privateSubnets []*ec2.Subnet
 
@@ -51,7 +51,6 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 
 		if subnetType == "public" {
 			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
-			fmt.Println(reflect.TypeOf(currentNatGateway))
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
@@ -73,6 +72,7 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		}
 	}
 
+	// Private Subnets - Route Tables and VPC Endpoints
 	for i, subnetResource := range privateSubnets {
 		indexNum := strconv.Itoa(i + 1)
 		routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
@@ -84,6 +84,16 @@ func Network(ctx *pulumi.Context, projectName string, vpcCidrRange string, subne
 		if associateRouteTableErr != nil {
 			return associateRouteTableErr
 		}
+	}
+
+	_, createS3VpcEndpoint := network.CreateS3VpcEndpoint(ctx, projectName, mainRegion, vpcResource)
+	if createS3VpcEndpoint != nil {
+		return createS3VpcEndpoint
+	}
+
+	_, createDynamoDBVpcEndpoint := network.CreateDynamoDBVpcEndpoint(ctx, projectName, mainRegion, vpcResource)
+	if createDynamoDBVpcEndpoint != nil {
+		return createDynamoDBVpcEndpoint
 	}
 
 	// TODO : check what to do with exports and if we need them at all
