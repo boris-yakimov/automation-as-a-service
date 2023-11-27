@@ -56,7 +56,7 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 			}
 			natGateways = append(natGateways, currentNatGateway)
 
-			routeTablePublic, createIgwRouteTableErr := network.CreateIgwRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
+			routeTablePublic, createIgwRouteTableErr := network.CreatePublicRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
 				return createIgwRouteTableErr
 			}
@@ -75,7 +75,7 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 	// Private Subnets - Route Tables and VPC Endpoints
 	for i, subnetResource := range privateSubnets {
 		indexNum := strconv.Itoa(i + 1)
-		routeTablePrivate, createNatRouteTableErr := network.CreateNatRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
+		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}

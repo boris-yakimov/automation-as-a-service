@@ -7,7 +7,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
-func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, natGatewayResource *ec2.NatGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+func CreatePrivateRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, natGatewayResource *ec2.NatGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
 	// TODO: add validations to make sure those are not empty
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
@@ -33,7 +33,7 @@ func CreateNatRouteTable(ctx *pulumi.Context, projectName string, indexNum strin
 	return routeTableResource, nil
 }
 
-func CreateIgwRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, inetGatewayResource *ec2.InternetGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
+func CreatePublicRouteTable(ctx *pulumi.Context, projectName string, indexNum string, vpcResource *ec2.Vpc, subnetType string, cidrBlock string, inetGatewayResource *ec2.InternetGateway) (routeTableResourceObject *ec2.RouteTable, createRouteTableErr error) {
 	// TODO: add validations to make sure those are not empty
 	routeTableName := fmt.Sprintf("%s-%s-route-table-%s", projectName, subnetType, indexNum)
 
