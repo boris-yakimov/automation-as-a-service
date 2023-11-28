@@ -2,6 +2,8 @@ package provisioning
 
 import (
 	"automation-as-a-service/modules/network"
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -27,10 +29,10 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
 
 	// Public Subnets - NAT gateway and Route tables
-	var natGateways []*ec2.NatGateway
-	var privateSubnets []*ec2.Subnet
+	var listOfNatGateways []*ec2.NatGateway
+	privateSubnets := make(map[string]*ec2.Subnet)
 
-	for subnetName, cidr := range subnetList {
+	for subnetName, cidrRange := range subnetList {
 		var subnetType string
 
 		if strings.Contains(subnetName, "private") {
@@ -42,7 +44,8 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		var createSubnetErr error
 		var currentSubnet *ec2.Subnet
 
-		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, projectName, subnetType, subnetName, cidr, vpcResource)
+		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, projectName, subnetType, subnetName, cidrRange, vpcResource)
+		fmt.Printf("Created subnet: %s (%s) with CIDR: %s\n", subnetName, subnetType, cidrRange)
 		if createSubnetErr != nil {
 			return createSubnetErr
 		}
@@ -51,10 +54,11 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 
 		if subnetType == "public" {
 			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
+			fmt.Printf("Created NAT Gateway for subnet %s\n", subnetName)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
-			natGateways = append(natGateways, currentNatGateway)
+			listOfNatGateways = append(listOfNatGateways, currentNatGateway)
 
 			routeTablePublic, createIgwRouteTableErr := network.CreatePublicRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
@@ -68,19 +72,40 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		}
 
 		if subnetType == "private" {
-			privateSubnets = append(privateSubnets, currentSubnet)
+			privateSubnets[cidrRange] = currentSubnet
 		}
 	}
 
+	// Sort list of CIDR ranges and their associated to NAT gateways to prevent random assignment of route table to nat gateway that constantly detects route table changes
+	sortedCidrRanges := make([]string, 0, len(privateSubnets))
+	for k := range privateSubnets {
+		sortedCidrRanges = append(sortedCidrRanges, k)
+	}
+	// TODO: make sure to understand how stable slice works here and what is the different between the regular sort
+	//sort.Strings(sortedCidrRanges)
+	sort.SliceStable(sortedCidrRanges, func(i, j int) bool {
+		return sortedCidrRanges[i] < sortedCidrRanges[j]
+	})
+
+	natGateways := make(map[string]*ec2.NatGateway)
+	for i, natResource := range listOfNatGateways {
+		cidr := sortedCidrRanges[i]
+		natGateways[cidr] = natResource
+	}
+	fmt.Printf("NAT Gateway Assignments: %v\n", natGateways)
+	//fmt.Println(natGateways)
+
 	// Private Subnets - Route Tables and VPC Endpoints
-	for i, subnetResource := range privateSubnets {
+	for i, cidrRange := range sortedCidrRanges {
 		indexNum := strconv.Itoa(i + 1)
-		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[i])
+		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNum, vpcResource, "private", "0.0.0.0/0", natGateways[cidrRange])
+		fmt.Printf("Created Route Table for CIDR %s\n", cidrRange)
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}
 
-		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, subnetResource, "private", routeTablePrivate)
+		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, privateSubnets[cidrRange], "private", routeTablePrivate)
+		fmt.Println("Associated Route Table with subnet: ", privateSubnets[cidrRange])
 		if associateRouteTableErr != nil {
 			return associateRouteTableErr
 		}
@@ -97,6 +122,6 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 	}
 
 	// TODO : check what to do with exports and if we need them at all
-	//ctx.Export("vpcResource", vpcResource)
+	ctx.Export("vpcResource", vpcResource)
 	return nil
 }
