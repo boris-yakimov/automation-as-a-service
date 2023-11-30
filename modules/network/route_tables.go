@@ -18,6 +18,11 @@ func CreatePrivateRouteTable(ctx *pulumi.Context, projectName string, indexNum s
 				CidrBlock:    pulumi.String(cidrBlock),
 				NatGatewayId: pulumi.StringInput(natGatewayResource.ID()),
 			},
+			//&ec2.RouteTableRouteArgs{
+			// TODO: check if this ID is consistent between all accounts if not figure out how to take it dynamically
+			//DestinationPrefixListId: pulumi.String("pl-6ea54007"),
+			//VpcEndpointId:           pulumi.StringInput(vpcEndpointResource.ID()),
+			//}, // TODO: add prefix list with destinations for VPC gateway endpoints - can it be done with a variadic function to dynamically pick how many endpoints can be passed, since they will likely be with different types
 		},
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(routeTableName),
@@ -43,7 +48,7 @@ func CreatePublicRouteTable(ctx *pulumi.Context, projectName string, indexNum st
 			&ec2.RouteTableRouteArgs{
 				CidrBlock: pulumi.String(cidrBlock),
 				GatewayId: pulumi.StringInput(inetGatewayResource.ID()),
-			}, // TODO: add prefix list with destinations for VPC gateway endpoints - can it be done with a variadic function to dynamically pick how many endpoints can be passed, since they will likely be with different types
+			},
 		},
 		Tags: pulumi.StringMap{
 			"Name": pulumi.String(routeTableName),
