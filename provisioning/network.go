@@ -93,19 +93,8 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		natGateways[cidr] = natResource
 	}
 	fmt.Printf("NAT Gateway Assignments: %v\n", natGateways)
-	//fmt.Println(natGateways)
 
-	// VPC endpoints - have to be prepared before private route tables are created
-	_, createS3VpcEndpoint := network.CreateS3VpcEndpoint(ctx, projectName, mainRegion, vpcResource)
-	if createS3VpcEndpoint != nil {
-		return createS3VpcEndpoint
-	}
-
-	_, createDynamoDBVpcEndpoint := network.CreateDynamoDBVpcEndpoint(ctx, projectName, mainRegion, vpcResource)
-	if createDynamoDBVpcEndpoint != nil {
-		return createDynamoDBVpcEndpoint
-	}
-
+	var listOfPrivateRouteTables []*ec2.RouteTable
 	// Private Subnets - Route Tables and VPC Endpoints
 	for i, cidrRange := range sortedCidrRanges {
 		indexNum := strconv.Itoa(i + 1)
@@ -114,12 +103,23 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}
+		listOfPrivateRouteTables = append(listOfPrivateRouteTables, routeTablePrivate)
 
 		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNum, privateSubnets[cidrRange], "private", routeTablePrivate)
 		fmt.Println("Associated Route Table with subnet: ", privateSubnets[cidrRange])
 		if associateRouteTableErr != nil {
 			return associateRouteTableErr
 		}
+	}
+
+	_, createS3VpcEndpoint := network.CreateS3VpcEndpoint(ctx, projectName, mainRegion, vpcResource, listOfPrivateRouteTables)
+	if createS3VpcEndpoint != nil {
+		return createS3VpcEndpoint
+	}
+
+	_, createDynamoDBVpcEndpoint := network.CreateDynamoDBVpcEndpoint(ctx, projectName, mainRegion, vpcResource, listOfPrivateRouteTables)
+	if createDynamoDBVpcEndpoint != nil {
+		return createDynamoDBVpcEndpoint
 	}
 
 	// TODO : check what to do with exports and if we need them at all
