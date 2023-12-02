@@ -28,9 +28,13 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
 	// Public Subnets - NAT gateway and Route tables
-	var listOfNatGateways []*ec2.NatGateway
+	//var listOfNatGateways []*ec2.NatGateway
 	privateSubnets := make(map[string]*ec2.Subnet)
-	natGateways := make(map[string]*ec2.NatGateway)
+	tempNatGatewayMap := make(map[string]*ec2.NatGateway)
+	var sortedListOfNatIds []string
+
+	// channel for pulumi ApplyT
+	done := make(chan bool)
 
 	for subnetName, cidrRange := range subnetList {
 		var subnetType string
@@ -58,9 +62,24 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
-			// TODO: convert this to a map of cidr to nat to force an order !!!
-			listOfNatGateways = append(listOfNatGateways, currentNatGateway)
-			natGateways[cidrRange] = currentNatGateway
+			//listOfNatGateways = append(listOfNatGateways, currentNatGateway)
+			//natGateways[cidrRange] = currentNatGateway
+			currentNatGateway.ID().ApplyT(func(id string) error {
+				sortedListOfNatIds = append(sortedListOfNatIds, id)
+				tempNatGatewayMap[id] = currentNatGateway
+				//fmt.Printf("natgw id: %s\n", id)
+				// ApplyT is asynchronous running in a separate goroutine so we are blocking on the channel to wait for goroutine to complete before the variable that is modified inside it can be used in the subsequent functions
+				done <- true
+
+				//for _, id := range sortedListOfNatIds {
+				//tempNatGatewayMap[id] = currentNatGateway
+				////fmt.Println(tempNatGatewayMap)
+				////fmt.Print
+				//}
+
+				return nil
+			})
+			<-done
 
 			routeTablePublic, createIgwRouteTableErr := network.CreatePublicRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
@@ -77,6 +96,19 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 			privateSubnets[cidrRange] = currentSubnet
 		}
 	}
+
+	fmt.Println("before sort")
+	fmt.Println(sortedListOfNatIds)
+	sort.SliceStable(sortedListOfNatIds, func(i, j int) bool {
+		return sortedListOfNatIds[i] < sortedListOfNatIds[j]
+	})
+	fmt.Println("after sort")
+	fmt.Println(sortedListOfNatIds)
+
+	//sortedCidrRanges := make([]string, 0, len(privateSubnets))
+	//for k := range privateSubnets {
+	//sortedCidrRanges = append(sortedCidrRanges, k)
+	//}
 
 	// Sort list of CIDR ranges and their associated to NAT gateways to prevent random assignment of route table to NAT gateway that constantly detects route table changes
 	sortedCidrRanges := make([]string, 0, len(privateSubnets))
@@ -100,15 +132,16 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 
 	var listOfPrivateRouteTables []*ec2.RouteTable
 
-	// Private Subnets - Route Tables and VPC Endpoints
-	//for i, cidrRange := range sortedCidrRanges {
 	indexNumTemp := "0"
-	for cidrRange, natGateway := range natGateways {
-		fmt.Println(pulumi.StringInput(natGateway.ID()))
+	// Private Subnets - Route Tables and VPC Endpoints
+	//for _, cidrRange := range sortedCidrRanges {
+	for _, natId := range sortedListOfNatIds {
+		//for cidrRange, _ := range natGateways {
+		//fmt.Println(pulumi.StringInput(natGateway.ID()))
 		//indexNum := strconv.Itoa(i + 1)
 
 		// TODO: HERE IS THE PROBLEM BECAUSE NAT KEEPS GETTING ASSIGNED TO A DIFFERENT ROUTE TABLE EVERY TIME !!!
-		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNumTemp, vpcResource, "private", "0.0.0.0/0", natGateways[cidrRange])
+		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNumTemp, vpcResource, "private", "0.0.0.0/0", tempNatGatewayMap[natId])
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}
@@ -122,7 +155,7 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		//})
 
 		listOfPrivateRouteTables = append(listOfPrivateRouteTables, routeTablePrivate)
-		sortedRouteTables[cidrRange] = routeTablePrivate
+		//sortedRouteTables[cidrRange] = routeTablePrivate
 	}
 
 	indexNumTemp1 := "0"
