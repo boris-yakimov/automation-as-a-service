@@ -2,7 +2,6 @@ package provisioning
 
 import (
 	"automation-as-a-service/modules/network"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,13 +27,12 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 
 	// TODO: check if I can automate handling of request to increase max number of IPs in account - creating EC2 EIP: AddressLimitExceeded: The maximum number of addresses has been reached.
 	// Public Subnets - NAT gateway and Route tables
-	//var listOfNatGateways []*ec2.NatGateway
 	privateSubnets := make(map[string]*ec2.Subnet)
-	tempNatGatewayMap := make(map[string]*ec2.NatGateway)
+	natGatewayIdToResourceMap := make(map[string]*ec2.NatGateway)
 	var sortedListOfNatIds []string
 
 	// channel for pulumi ApplyT
-	done := make(chan bool)
+	applytFuncDone := make(chan bool)
 
 	for subnetName, cidrRange := range subnetList {
 		var subnetType string
@@ -49,6 +47,7 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		var currentSubnet *ec2.Subnet
 
 		currentSubnet, createSubnetErr = network.CreateSubnet(ctx, projectName, subnetType, subnetName, cidrRange, vpcResource)
+		// debug
 		//fmt.Printf("Created subnet: %s (%s) with CIDR: %s\n", subnetName, subnetType, cidrRange)
 		if createSubnetErr != nil {
 			return createSubnetErr
@@ -58,28 +57,22 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 
 		if subnetType == "public" {
 			currentNatGateway, createNatGwErr := network.CreateNatGateway(ctx, projectName, indexNum, currentSubnet, vpcResource)
+			// debug
 			//fmt.Printf("Created NAT Gateway for subnet %s\n", subnetName)
 			if createNatGwErr != nil {
 				return createNatGwErr
 			}
-			//listOfNatGateways = append(listOfNatGateways, currentNatGateway)
-			//natGateways[cidrRange] = currentNatGateway
+			// get ID of NAT as string from output param of NAT resource
 			currentNatGateway.ID().ApplyT(func(id string) error {
+				// sort NAT IDs to bypass bug where order of NAT gateways keep changing at random and route tables keep trying to get repointed at every run
 				sortedListOfNatIds = append(sortedListOfNatIds, id)
-				tempNatGatewayMap[id] = currentNatGateway
-				//fmt.Printf("natgw id: %s\n", id)
-				// ApplyT is asynchronous running in a separate goroutine so we are blocking on the channel to wait for goroutine to complete before the variable that is modified inside it can be used in the subsequent functions
-				done <- true
-
-				//for _, id := range sortedListOfNatIds {
-				//tempNatGatewayMap[id] = currentNatGateway
-				////fmt.Println(tempNatGatewayMap)
-				////fmt.Print
-				//}
-
+				natGatewayIdToResourceMap[id] = currentNatGateway
+				// block channel until ApplyT function finishes as we are trying get NAT id from the function which is by default asynchronous, if we don't wait we hit an issue where list of NAT Ids is empty
+				applytFuncDone <- true
 				return nil
 			})
-			<-done
+			// TODO: make sure I understand how goroutines and this specifically works
+			<-applytFuncDone
 
 			routeTablePublic, createIgwRouteTableErr := network.CreatePublicRouteTable(ctx, projectName, indexNum, vpcResource, "public", "0.0.0.0/0", inetGwResource)
 			if createIgwRouteTableErr != nil {
@@ -97,56 +90,23 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		}
 	}
 
-	fmt.Println("before sort")
-	fmt.Println(sortedListOfNatIds)
+	// make sure list of NAT Ids is sorted otherwise route tables keep trying to assign different NATs on every run
+	// TODO: make sure to understand how stable slice works here and what is the difference between the regular sort
 	sort.SliceStable(sortedListOfNatIds, func(i, j int) bool {
 		return sortedListOfNatIds[i] < sortedListOfNatIds[j]
 	})
-	fmt.Println("after sort")
-	fmt.Println(sortedListOfNatIds)
-
-	//sortedCidrRanges := make([]string, 0, len(privateSubnets))
-	//for k := range privateSubnets {
-	//sortedCidrRanges = append(sortedCidrRanges, k)
-	//}
-
-	// Sort list of CIDR ranges and their associated to NAT gateways to prevent random assignment of route table to NAT gateway that constantly detects route table changes
-	sortedCidrRanges := make([]string, 0, len(privateSubnets))
-	for k := range privateSubnets {
-		sortedCidrRanges = append(sortedCidrRanges, k)
-	}
-	// TODO: make sure to understand how stable slice works here and what is the difference between the regular sort
-	sort.SliceStable(sortedCidrRanges, func(i, j int) bool {
-		return sortedCidrRanges[i] < sortedCidrRanges[j]
-	})
-
-	//natGateways := make(map[string]*ec2.NatGateway)
-	//for i, natResource := range listOfNatGateways {
-	//cidr := sortedCidrRanges[i]
-	//natGateways[cidr] = natResource
-	//}
-	// debug
-	//fmt.Printf("NAT Gateway Assignments: %v\n", natGateways)
-	// TODO: fix name
-	sortedRouteTables := make(map[string]*ec2.RouteTable)
 
 	var listOfPrivateRouteTables []*ec2.RouteTable
 
-	indexNumTemp := "0"
+	indexNumCreateRoute := "0"
 	// Private Subnets - Route Tables and VPC Endpoints
-	//for _, cidrRange := range sortedCidrRanges {
 	for _, natId := range sortedListOfNatIds {
-		//for cidrRange, _ := range natGateways {
-		//fmt.Println(pulumi.StringInput(natGateway.ID()))
-		//indexNum := strconv.Itoa(i + 1)
-
-		// TODO: HERE IS THE PROBLEM BECAUSE NAT KEEPS GETTING ASSIGNED TO A DIFFERENT ROUTE TABLE EVERY TIME !!!
-		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNumTemp, vpcResource, "private", "0.0.0.0/0", tempNatGatewayMap[natId])
+		routeTablePrivate, createNatRouteTableErr := network.CreatePrivateRouteTable(ctx, projectName, indexNumCreateRoute, vpcResource, "private", "0.0.0.0/0", natGatewayIdToResourceMap[natId])
 		if createNatRouteTableErr != nil {
 			return createNatRouteTableErr
 		}
-		counter, _ := strconv.Atoi(indexNumTemp)
-		indexNumTemp = strconv.Itoa(counter + 1)
+		counter, _ := strconv.Atoi(indexNumCreateRoute)
+		indexNumCreateRoute = strconv.Itoa(counter + 1)
 		// debug
 		//fmt.Printf("Created Route Table for CIDR %s\n", cidrRange)
 		//routeTablePrivate.ID().ApplyT(func(id string) error {
@@ -154,30 +114,28 @@ func Network(ctx *pulumi.Context, projectName string, mainRegion string, vpcCidr
 		//return nil
 		//})
 
+		// Used for VPC endpoint attachments later
 		listOfPrivateRouteTables = append(listOfPrivateRouteTables, routeTablePrivate)
-		//sortedRouteTables[cidrRange] = routeTablePrivate
 	}
 
-	indexNumTemp1 := "0"
+	// TODO: how the hell does this work, this is just initialized and than used in for loop bellow but no actual values are assined to it anywhere but actual assignment on route table level in pulumi and aws console seems to work as expected
+	sortedRouteTables := make(map[string]*ec2.RouteTable)
+
+	indexNumAssocRoute := "0"
 	for cidrRange, routeTable := range sortedRouteTables {
-		//indexNum := strconv.Itoa(i + 1)
-		routeTableAssocResource, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNumTemp1, privateSubnets[cidrRange], "private", routeTable)
+		_, associateRouteTableErr := network.AssociateRouteTable(ctx, projectName, indexNumAssocRoute, privateSubnets[cidrRange], "private", routeTable)
 		if associateRouteTableErr != nil {
 			return associateRouteTableErr
 		}
-		counter, _ := strconv.Atoi(indexNumTemp1)
-		indexNumTemp1 = strconv.Itoa(counter + 1)
+		counter, _ := strconv.Atoi(indexNumAssocRoute)
+		indexNumAssocRoute = strconv.Itoa(counter + 1)
 		// debug
 		//fmt.Println("Associated Route Table with subnet: ", privateSubnets[cidrRange])
-		fmt.Println(cidrRange + "\n")
-		routeTable.ID().ApplyT(func(id string) error {
-			fmt.Printf("%s -> %s\n", cidrRange, id)
-			return nil
-		})
-		routeTableAssocResource.ID().ApplyT(func(id string) error {
-			fmt.Printf("route table assoc id: %s\n", id)
-			return nil
-		})
+		//fmt.Println(cidrRange + "\n")
+		//routeTable.ID().ApplyT(func(id string) error {
+		//fmt.Printf("%s -> %s\n", cidrRange, id)
+		//return nil
+		//})
 	}
 
 	_, createS3VpcEndpoint := network.CreateS3VpcEndpoint(ctx, projectName, mainRegion, vpcResource, listOfPrivateRouteTables)
