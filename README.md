@@ -1,3 +1,5 @@
+Deprecated - was used mainly as a project to experiment with Pulumi in Go
+
 # automation-as-a-service
 Day One Provisioning Automation
 
